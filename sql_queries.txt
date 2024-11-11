@@ -1,0 +1,204 @@
+BALANCED_TREE DATA QUERIES:
+
+High-Level Sales Analysis
+
+1. Total quantity sold for all products:
+
+SELECT SUM(quantity) AS total_quantity_sold
+FROM sales;
+
+2. Total revenue for all products before discounts:
+
+SELECT SUM(price * quantity) AS total_revenue_before_discount
+FROM sales;
+
+3. Total discount amount for all products:
+
+SELECT SUM(discount) AS total_discount_amount
+FROM sales;
+
+Transaction Analysis
+4. Unique transactions count:
+
+SELECT COUNT(DISTINCT transaction_id) AS unique_transactions
+FROM sales;
+
+5. Average unique products purchased per transaction:
+
+SELECT AVG(unique_products) AS avg_unique_products_per_transaction
+FROM (
+  SELECT transaction_id, COUNT(DISTINCT product_id) AS unique_products
+  FROM sales
+  GROUP BY transaction_id
+) AS transaction_summary;
+
+6. Percentiles for revenue per transaction:
+
+SELECT
+  PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY revenue) AS percentile_25,
+  PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY revenue) AS percentile_50,
+  PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY revenue) AS percentile_75
+FROM (
+  SELECT transaction_id, SUM(price * quantity - discount) AS revenue
+  FROM sales
+  GROUP BY transaction_id
+) AS transaction_revenue;
+
+7. Average discount value per transaction:
+
+SELECT AVG(discount) AS avg_discount_per_transaction
+FROM sales;
+
+8. Percentage split of transactions for members vs non-members:
+
+SELECT
+  SUM(CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS member_percentage,
+  SUM(CASE WHEN member_id IS NULL THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS non_member_percentage
+FROM sales;
+
+9. Average revenue for member vs non-member transactions:
+
+SELECT
+  AVG(CASE WHEN member_id IS NOT NULL THEN revenue ELSE 0 END) AS avg_member_revenue,
+  AVG(CASE WHEN member_id IS NULL THEN revenue ELSE 0 END) AS avg_non_member_revenue
+FROM (
+  SELECT transaction_id, SUM(price * quantity - discount) AS revenue, member_id
+  FROM sales
+  GROUP BY transaction_id, member_id
+) AS transaction_revenue;
+
+Product Analysis
+10. Top 3 products by total revenue before discount:
+
+SELECT product_id, SUM(price * quantity) AS total_revenue_before_discount
+FROM sales
+GROUP BY product_id
+ORDER BY total_revenue_before_discount DESC
+LIMIT 3;
+
+11. Total quantity, revenue, and discount for each segment:
+
+SELECT segment_id,
+       SUM(quantity) AS total_quantity,
+       SUM(price * quantity) AS total_revenue,
+       SUM(discount) AS total_discount
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY segment_id;
+
+12. Top selling product for each segment:
+
+SELECT segment_id, product_id, SUM(quantity) AS total_quantity
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY segment_id, product_id
+ORDER BY segment_id, total_quantity DESC;
+
+13. Total quantity, revenue, and discount for each category:
+
+SELECT category_id,
+       SUM(quantity) AS total_quantity,
+       SUM(price * quantity) AS total_revenue,
+       SUM(discount) AS total_discount
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY category_id;
+
+14. Top selling product for each category:
+
+SELECT category_id, product_id, 
+SUM(quantity) AS total_quantity
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY category_id, product_id
+ORDER BY category_id, total_quantity DESC;
+
+15. Percentage split of revenue by product for each segment:
+
+SELECT segment_id, product_id,
+       SUM(price * quantity) * 100.0 / SUM(SUM(price * quantity)) OVER (PARTITION BY segment_id) AS revenue_percentage
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY segment_id, product_id;
+
+16. Percentage split of revenue by segment for each category:
+
+SELECT category_id, segment_id,
+       SUM(price * quantity) * 100.0 / SUM(SUM(price * quantity)) OVER (PARTITION BY category_id) AS revenue_percentage
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY category_id, segment_id;
+
+17. Percentage split of total revenue by category:
+
+SELECT category_id,
+       SUM(price * quantity) * 100.0 / (SELECT SUM(price * quantity) FROM sales) AS revenue_percentage
+FROM sales
+JOIN products ON sales.product_id = products.product_id
+GROUP BY category_id;
+
+18. Transaction penetration for each product:
+
+SELECT product_id,
+       COUNT(DISTINCT transaction_id) * 100.0 / (SELECT COUNT(DISTINCT transaction_id) FROM sales) AS penetration_percentage
+FROM sales
+GROUP BY product_id;
+
+19. Most common combination of at least 1 quantity of any 3 products in a single transaction:
+
+SELECT product_combination, COUNT(*) AS combination_count
+FROM (
+  SELECT transaction_id, STRING_AGG(DISTINCT product_id, ',') AS product_combination
+  FROM sales
+  GROUP BY transaction_id
+  HAVING COUNT(DISTINCT product_id) >= 3
+) AS product_combinations
+GROUP BY product_combination
+ORDER BY combination_count DESC
+LIMIT 1;
+
+Reporting Challenge
+You would write a single SQL script that incorporates all of the above queries, separated by comments to clearly identify which question is being answered. For example:
+
+-- High-Level Sales Analysis
+SELECT SUM(quantity) AS total_quantity_sold FROM sales; -- Question 1
+
+-- Add more queries for the other sales analysis questions here
+
+-- Transaction Analysis
+SELECT COUNT(DISTINCT transaction_id) AS unique_transactions FROM sales; -- Question 4
+-- Add more queries for the other transaction analysis questions here
+
+-- Product Analysis
+SELECT product_id, SUM(price * quantity) AS total_revenue_before_discount
+FROM sales
+GROUP BY product_id ORDER BY total_revenue_before_discount DESC LIMIT 3; -- Question 10
+
+-- Add more queries for the other product analysis questions here
+
+Bonus Challenge: Transforming product_hierarchy and product_prices to product_details
+For this, you'll likely need a recursive CTE (Common Table Expression) to handle hierarchical data in product_hierarchy. The following query demonstrates how you can transform hierarchical product data:
+
+WITH RECURSIVE product_hierarchy_tree AS (
+    SELECT product_id, parent_product_id, product_name
+    FROM product_hierarchy
+    WHERE parent_product_id IS NULL
+    UNION ALL
+    SELECT ph.product_id, ph.parent_product_id, ph.product_name
+    FROM product_hierarchy ph
+    JOIN product_hierarchy_tree pht ON ph.parent_product_id = pht.product_id
+)
+INSERT INTO product_details (product_id, product_name, parent_product_id, price)
+SELECT pht.product_id, pht.product_name, pht.parent_product_id, pp.price
+FROM product_hierarchy_tree pht
+JOIN product_prices pp ON pht.product_id = pp.product_id;
+This query will handle both the hierarchical structure of products and the product prices, inserting them into the product_details table.
+
+Running for Different Months
+To run the queries for different months, you can modify the date filters to target a specific month:
+
+WHERE transaction_date BETWEEN '2024-01-01' AND '2024-01-31' -- For January
+To generate monthly reports without changing much in the SQL, you can use parameterization or build a dynamic query in your reporting tool to adjust the month range.
+
+
+
