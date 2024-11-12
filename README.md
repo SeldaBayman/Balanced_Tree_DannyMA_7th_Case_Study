@@ -1,5 +1,8 @@
 # Balanced_Tree_DannyMA_7th_Case_Study
 DANNY MA 7TH CASE
+
+![balanced_Tree1](https://github.com/user-attachments/assets/cf86646a-16c8-466d-8c41-4bd72d714711)
+
 Introduction
 Balanced Tree Clothing Company prides themselves on providing an optimised range of clothing and lifestyle wear for the modern adventurer!
 Danny, the CEO of this trendy fashion company has asked you to assist the team’s merchandising teams analyse their sales performance and generate a basic financial report to share with the wider business.
